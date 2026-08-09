@@ -1,0 +1,30 @@
+# Python virtual environment
+.venv/
+venv/
+
+# Upstream GStreamer source and build tree
+upstream/
+
+# Meson / Ninja build directories
+build/
+**/build/
+
+# GStreamer runtime registry and cache
+*.bin
+.cache/
+
+# Runtime logs
+*.log
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Local environment configuration
+env.sh
