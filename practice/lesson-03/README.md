@@ -1,321 +1,370 @@
-# Lab 02 — GStreamer Object Model
+# Lab 03 — GstBuffer, GstMemory and Data Ownership
 
 ## 1. Objective
 
-This lab introduces the core GStreamer object model through incremental C++17 examples.
+This lab introduces the GStreamer data model used to carry media through a pipeline.
 
-The lab focuses on:
+The main focus is:
 
 ```text
-Plugin
-  ↓
-Registry
-  ↓
-Element Factory
-  ↓
-Element
-  ↓
-Pad
-  ↓
-Link
-  ↓
-Bin
-  ↓
-Pipeline
+GstAllocator
+    ↓
+GstMemory
+    ↓
+GstBuffer
+    ├── payload
+    ├── timestamps
+    ├── flags
+    └── GstMeta
 ```
 
-It also introduces the three important pad availability models:
+The lab also covers:
 
-* `ALWAYS`
-* `REQUEST`
-* `SOMETIMES`
+* buffer reference counting;
+* borrowed vs owned references;
+* buffer mapping;
+* buffer writability;
+* shallow vs deep copies;
+* buffer metadata;
+* buffer pools;
+* ownership transfer through `gst_pad_push()`;
+* borrowed buffers in pad probes;
+* RAII-based buffer mapping in C++.
 
-and the use of `GstGhostPad` to expose internal pads from a reusable `GstBin`.
-
-The examples are intentionally incremental. Each example introduces only the concepts required for that step.
+The examples are intentionally incremental and focus on ownership and data lifetime rather than camera devices or media-format interpretation.
 
 ---
 
 ## 2. Examples
 
-### Example 01 — Registry, Factory and Element
+### Example 01 — GstBuffer, GstMemory and GstAllocator
 
 Source:
 
 ```text
-src/01_registry_factory.cpp
+src/01_buffer_memory.cpp
 ```
 
 Topics:
 
-* `GstRegistry`
-* `GstPluginFeature`
-* `GstElementFactory`
-* plugin metadata
-* element instance creation
-* factory name vs element instance name
-* basic reference ownership
-
-Mental model:
-
-```text
-Plugin
-  ↓ registers
-Registry
-  ↓ lookup
-GstElementFactory
-  ↓ create
-GstElement
-```
-
----
-
-### Example 02 — Pad and Pad Template
-
-Source:
-
-```text
-src/02_pad_template.cpp
-```
-
-Topics:
-
-* `GstPad`
-* `GstPadTemplate`
-* `SRC` and `SINK` directions
-* `ALWAYS` pads
-* template caps
-* actual runtime pad vs pad template
-
-Mental model:
-
-```text
-GstPadTemplate
-    = pad contract
-
-        ↓
-
-GstPad
-    = actual runtime endpoint
-```
-
----
-
-### Example 03 — Bin, Pipeline and Ownership
-
-Source:
-
-```text
-src/03_bin_pipeline.cpp
-```
-
-Topics:
-
-* `GstBin`
-* `GstPipeline`
-* parent-child hierarchy
-* `gst_bin_add()`
+* `GstAllocator`
+* `GstMemory`
+* `GstBuffer`
+* multiple memory blocks per buffer
+* `gst_buffer_append_memory()`
+* `gst_buffer_peek_memory()`
+* `gst_buffer_get_memory()`
 * ownership transfer
-* cleanup through the parent container
 
-Type hierarchy:
+Mental model:
 
 ```text
-GstElement
-    ↑
-GstBin
-    ↑
-GstPipeline
+GstAllocator
+     ↓ allocates
+ GstMemory
+     ↓ attached to
+ GstBuffer
 ```
 
-Ownership model:
+Important ownership rules:
 
 ```text
-element creation
-      ↓
-caller owns element
-      ↓
-gst_bin_add() succeeds
-      ↓
-bin owns child
+gst_buffer_peek_memory()
+    → borrowed reference
+    → do not unref
+
+gst_buffer_get_memory()
+    → owned reference
+    → caller must unref
+
+gst_buffer_append_memory()
+    → ownership transferred to GstBuffer
 ```
 
 ---
 
-### Example 04 — Static Linking
+### Example 02 — Mapping and Writability
 
 Source:
 
 ```text
-src/04_static_linking.cpp
+src/02_mapping_writability.cpp
 ```
 
 Topics:
 
-* `gst_element_link()`
-* actual pad peer relationship
-* static `SRC → SINK` linking
-* compatible and incompatible element linking
-* linking vs runtime negotiation
+* `gst_buffer_map()`
+* `gst_buffer_unmap()`
+* `GST_MAP_READ`
+* `GST_MAP_WRITE`
+* `gst_buffer_is_writable()`
+* `gst_buffer_make_writable()`
+* copy-on-write behavior
 
-Successful graph:
-
-```text
-videotestsrc → videoconvert → fakesink
-```
-
-Controlled failure:
+Basic mapping lifecycle:
 
 ```text
-audiotestsrc ──X──> videoconvert
+map
+ ↓
+access map.data
+ ↓
+unmap
 ```
 
-A successful link proves that the topology can be connected.
+Safe modification workflow:
 
-It does not prove:
+```text
+owned GstBuffer
+      ↓
+gst_buffer_make_writable()
+      ↓
+gst_buffer_map(..., GST_MAP_WRITE)
+      ↓
+modify payload
+      ↓
+gst_buffer_unmap()
+```
 
-* runtime caps negotiation success;
-* successful device configuration;
-* buffer flow;
-* stable runtime operation.
+After `gst_buffer_unmap()`, the mapped data pointer must no longer be used.
 
 ---
 
-### Example 05 — Request Pads
+### Example 03 — Reference Counting and Buffer Copies
 
 Source:
 
 ```text
-src/05_request_pad.cpp
+src/03_buffer_copy.cpp
 ```
 
 Topics:
 
-* `REQUEST` pad lifecycle
-* `tee`
-* `gst_element_request_pad_simple()`
-* explicit `gst_pad_link()`
-* `gst_element_release_request_pad()`
-* request-pad ownership
+* `gst_buffer_ref()`
+* `gst_buffer_unref()`
+* `gst_buffer_copy()`
+* `gst_buffer_copy_deep()`
+* shared memory
+* independent payload copies
 
-Graph:
+Mental model:
 
 ```text
-                    ┌→ queue-a → fakesink
-videotestsrc → tee ─┤
-                    └→ queue-b → fakesink
+gst_buffer_ref()
+    → same GstBuffer
+    → additional reference
+
+gst_buffer_copy()
+    → new GstBuffer structure
+    → memory may remain shared
+
+gst_buffer_copy_deep()
+    → new GstBuffer
+    → payload copied into independent memory
 ```
+
+Deep copies should not be introduced without a clear ownership or lifetime requirement because they may increase memory bandwidth, allocation cost and latency.
+
+---
+
+### Example 04 — Timestamp, Flags and GstMeta
+
+Source:
+
+```text
+src/04_buffer_metadata.cpp
+```
+
+Topics:
+
+* `PTS`
+* `DTS`
+* duration
+* offset
+* buffer flags
+* `GstMeta`
+* metadata copying
+* payload vs metadata
+
+Mental model:
+
+```text
+GstBuffer
+├── GstMemory
+├── PTS
+├── DTS
+├── Duration
+├── Offset
+├── Flags
+└── GstMeta
+```
+
+A buffer is therefore more than a pointer to media bytes.
+
+Important distinction:
+
+```text
+payload
+    = media data stored through GstMemory
+
+metadata
+    = timing, flags and GstMeta associated with the buffer
+```
+
+---
+
+### Example 05 — GstBufferPool
+
+Source:
+
+```text
+src/05_buffer_pool.cpp
+```
+
+Topics:
+
+* `GstBufferPool`
+* pool configuration
+* buffer acquisition
+* buffer reuse
+* maximum outstanding buffers
+* buffer retention
+* backpressure
 
 Lifecycle:
 
 ```text
-request
-  ↓
-link
-  ↓
-use
-  ↓
-unlink
-  ↓
-release
-  ↓
-unref
-```
-
----
-
-### Example 06 — Ghost Pads and Reusable Bins
-
-Source:
-
-```text
-src/06_ghost_pad.cpp
-```
-
-Topics:
-
-* `GstGhostPad`
-* reusable `GstBin`
-* exposing internal pads
-* hierarchical graph design
-
-Internal graph:
-
-```text
-processing-bin
-
-sink
+pool
  ↓
-videoconvert → identity
-                    ↓
-                   src
+acquire buffer
+ ↓
+use buffer
+ ↓
+last gst_buffer_unref()
+ ↓
+buffer returns to pool
+ ↓
+reuse
 ```
 
-External graph:
+The example demonstrates an important runtime behavior:
 
 ```text
-videotestsrc
-      ↓
-processing-bin
-      ↓
-fakesink
+retain too many buffers
+        ↓
+pool has no free buffer
+        ↓
+acquire may block or fail in non-blocking mode
 ```
 
-The external pipeline does not need to know the internal child topology.
+This becomes especially important in camera and real-time media pipelines.
 
 ---
 
-### Example 07 — Dynamic Pads
+### Example 06 — gst_pad_push() Ownership Transfer
 
 Source:
 
 ```text
-src/07_dynamic_pad.cpp
+src/06_pad_push_ownership.cpp
 ```
 
 Topics:
 
-* `SOMETIMES` pads
-* `decodebin`
-* `pad-added` signal
-* dynamic pad callbacks
-* media-type validation before linking
+* source pads
+* `gst_pad_push()`
+* transfer-full ownership
+* controlled `GST_FLOW_NOT_LINKED`
+* retaining a separate reference
 
-Mental model:
-
-```text
-decodebin
-    │
-    │ discovers stream
-    ↓
-creates new src pad
-    │
-    │ pad-added
-    ↓
-application callback
-    │
-    ↓
-gst_pad_link()
-```
-
-Difference from request pads:
+Critical ownership rule:
 
 ```text
-REQUEST
-    application asks the element to create a pad
-
-SOMETIMES
-    element creates the pad when runtime stream information becomes available
+caller owns buffer
+      ↓
+gst_pad_push(pad, buffer)
+      ↓
+ownership transferred
 ```
+
+The caller must not unref the same reference after `gst_pad_push()`.
+
+If the application needs to retain access:
+
+```text
+gst_buffer_ref(buffer)
+      ↓
+gst_pad_push(pad, buffer)
+      ↓
+use retained reference
+      ↓
+gst_buffer_unref(retained)
+```
+
+---
+
+### Example 07 — Pad Probe and RAII Mapping
+
+Source:
+
+```text
+src/07_pad_probe_raii.cpp
+```
+
+Topics:
+
+* `GST_PAD_PROBE_TYPE_BUFFER`
+* `GstPadProbeInfo`
+* borrowed buffer references
+* read-only inspection
+* C++ RAII
+* automatic `map/unmap` pairing
+
+Pad probe ownership:
+
+```text
+GstPadProbeInfo
+       ↓
+borrowed GstBuffer
+       ↓
+inspect only
+```
+
+The callback must not unref the borrowed buffer.
+
+If the application needs to retain it beyond the callback:
+
+```text
+borrowed buffer
+      ↓
+gst_buffer_ref()
+      ↓
+owned retained reference
+```
+
+The RAII wrapper demonstrates:
+
+```text
+constructor
+    ↓
+gst_buffer_map()
+
+scope exit
+    ↓
+destructor
+    ↓
+gst_buffer_unmap()
+```
+
+RAII manages the mapping lifetime, not the lifetime of the `GstBuffer`.
 
 ---
 
 ## 3. Build
 
-Activate the development environment first:
+Activate the project environment:
 
 ```bash
-cd /home/tungnhs/TungNHS/Gstreamer-Lesson
+cd ~/TungNHS/Gstreamer-Lesson
 
 source .venv/bin/activate
 source env.sh
@@ -324,7 +373,7 @@ source env.sh
 Enter the lab:
 
 ```bash
-cd practice/lesson-02
+cd practice/lesson-03
 ```
 
 First build:
@@ -334,7 +383,7 @@ meson setup build
 meson compile -C build
 ```
 
-For subsequent changes:
+Subsequent builds:
 
 ```bash
 meson compile -C build
@@ -344,152 +393,237 @@ meson compile -C build
 
 ## 4. Run
 
-Run examples individually:
-
 ```bash
-./build/01_registry_factory
-./build/02_pad_template
-./build/03_bin_pipeline
-./build/04_static_linking
-./build/05_request_pad
-./build/06_ghost_pad
-./build/07_dynamic_pad
+./build/01_buffer_memory
+./build/02_mapping_writability
+./build/03_buffer_copy
+./build/04_buffer_metadata
+./build/05_buffer_pool
+./build/06_pad_push_ownership
+./build/07_pad_probe_raii
 ```
 
 ---
 
-## 5. Coding Rules
+## 5. Core Ownership Rules
 
-The examples follow these rules:
+### GstBuffer
 
-* C++17;
-* `snake_case` naming;
-* no unnecessary objects or variables;
-* every GStreamer object has a clear purpose;
-* explicit error checking;
-* explicit ownership handling;
-* Doxygen for functions with meaningful contracts;
-* comments explain ownership, intent, or non-obvious behavior;
-* lines are kept on one line when reasonably readable;
-* no unnecessary line wrapping.
+`GstBuffer` is a `GstMiniObject`.
 
----
-
-## 6. Key Ownership Rules
-
-### Newly Created Element
-
-Before adding it to a bin:
-
-```text
-caller owns the element
-```
-
-After successful:
+Use:
 
 ```cpp
-gst_bin_add(...)
+gst_buffer_ref(buffer);
+gst_buffer_unref(buffer);
 ```
 
-the bin owns the child.
-
-The local pointer is then used as a borrowed pointer while the parent remains alive.
+Do not treat it as a `GstObject`.
 
 ---
 
-### Static Pad
+### GstMemory
+
+A `GstBuffer` may contain zero, one or multiple `GstMemory` blocks.
+
+```text
+GstBuffer
+├── GstMemory 0
+├── GstMemory 1
+└── ...
+```
+
+The number of `GstMemory` objects must not be assumed to equal the number of video planes.
+
+---
+
+### Borrowed Reference
+
+Example:
 
 ```cpp
-gst_element_get_static_pad(...)
+gst_buffer_peek_memory(...)
 ```
 
-returns a reference that must be released with:
+or a buffer obtained from a pad probe.
+
+Rule:
+
+```text
+borrowed
+    → inspect/use within valid lifetime
+    → do not unref
+```
+
+---
+
+### Owned Reference
+
+Example:
 
 ```cpp
-gst_object_unref(...)
+gst_buffer_get_memory(...)
+gst_buffer_ref(...)
+```
+
+Rule:
+
+```text
+owned reference
+    → caller must eventually unref
 ```
 
 ---
 
-### Request Pad
+### Ownership Transfer
 
-A requested pad requires two different cleanup operations:
+Example:
 
 ```cpp
-gst_element_release_request_pad(element, pad);
-gst_object_unref(pad);
+gst_buffer_append_memory(buffer, memory);
+gst_pad_push(pad, buffer);
 ```
 
-`release_request_pad()` removes the requested pad from the element.
-
-`gst_object_unref()` releases the application's reference.
+After ownership transfer, the caller must not release the transferred reference again.
 
 ---
 
-## 7. Key Concepts
+## 6. Writability
 
-After completing this lab, you should be able to explain:
+A shared buffer should not be modified directly.
+
+Mental model:
 
 ```text
-Plugin
-Registry
-GstPluginFeature
-GstElementFactory
-GstElement
-GstPadTemplate
-GstPad
-GstBin
-GstPipeline
-GstGhostPad
+single reference
+    ↓
+buffer usually writable
+
+multiple references
+    ↓
+buffer not writable
 ```
 
-You should also understand:
+Modification pattern:
 
 ```text
-ALWAYS
-    pad exists with the element instance
-
-REQUEST
-    application explicitly requests the pad
-
-SOMETIMES
-    element creates the pad depending on runtime stream information
+own buffer
+    ↓
+make writable
+    ↓
+map WRITE
+    ↓
+modify
+    ↓
+unmap
 ```
 
-And the standard graph-construction workflow:
+`gst_buffer_make_writable()` may return the original buffer or a new writable buffer.
+
+---
+
+## 7. Buffer Copies
 
 ```text
-create
-  ↓
-add to bin/pipeline
-  ↓
-configure
-  ↓
-link
+gst_buffer_ref()
+    = same object
+
+gst_buffer_copy()
+    = new buffer structure
+      memory may be shared
+
+gst_buffer_copy_deep()
+    = new buffer
+      independent payload copy
+```
+
+Use deep copies only when independent payload lifetime or modification is actually required.
+
+---
+
+## 8. Buffer Pool Mental Model
+
+```text
+GstBufferPool
+      ↓
+prepares/reuses buffers
+      ↓
+application or element acquires
+      ↓
+buffer remains outstanding
+      ↓
+last reference disappears
+      ↓
+buffer returns to pool
+```
+
+Holding references longer than necessary can prevent reuse and create:
+
+* pool exhaustion;
+* blocking;
+* backpressure;
+* additional latency.
+
+---
+
+## 9. Relation to V4L2
+
+At this stage, keep the abstraction boundary clear:
+
+```text
+V4L2 capture buffer
+    = Linux video capture contract
+
+GstBuffer
+    = GStreamer media-data object
+```
+
+A GStreamer implementation may copy capture data or wrap/retain underlying memory.
+
+Do not assume:
+
+```text
+V4L2 buffer == GstBuffer
+```
+
+and do not claim zero-copy without runtime evidence.
+
+Detailed V4L2 ownership and capture lifecycle belong to Lab 06.
+
+---
+
+## 10. Scope Boundary
+
+This lab focuses on:
+
+```text
+GstBuffer
+GstMemory
+GstAllocator
+reference counting
+mapping
+writability
+copy semantics
+metadata
+buffer pools
+dataflow ownership
+```
+
+The following topics are intentionally handled later:
+
+```text
+YUY2 / MJPEG / raw format layout   → Lab 04
+Caps negotiation                   → Lab 05
+V4L2 camera capture                → Lab 06
+Pipeline state machine             → Lab 07
+GstBus / GstMessage                → Lab 08
 ```
 
 ---
 
-## 8. Scope Boundary
+## 11. Completion Criteria
 
-This lab focuses on the GStreamer object model and graph topology.
-
-The following topics are intentionally covered in later labs:
-
-```text
-GstBuffer / GstMemory           → Lab 03
-Raw video / YUY2 / MJPEG        → Lab 04
-Caps negotiation                → Lab 05
-V4L2 / v4l2src                  → Lab 06
-State machine                   → Lab 07
-GstBus / GstMessage             → Lab 08
-```
-
----
-
-## 9. Completion Criteria
-
-Lab 02 is complete when:
+Lab 03 is complete when:
 
 ```text
 [PASS] Example 01 builds and runs
@@ -502,28 +636,32 @@ Lab 02 is complete when:
 [PASS] Build produces no project-source warnings
 ```
 
-You should be able to explain the following without referring to the source code:
+After completing the lab, you should be able to explain:
 
 ```text
-Registry → Factory → Element
+GstAllocator → GstMemory → GstBuffer
 
-PadTemplate → actual Pad
+borrowed vs owned references
 
-Element → Bin → Pipeline
+map → access → unmap
 
-ALWAYS vs REQUEST vs SOMETIMES
+buffer writability
 
-Static linking vs dynamic linking
+ref vs shallow copy vs deep copy
 
-Ghost pad abstraction
+payload vs metadata
 
-GStreamer object ownership after gst_bin_add()
+buffer pool acquire/release/reuse
+
+gst_pad_push() ownership transfer
+
+pad-probe borrowed buffer lifetime
 ```
 
 ## Lab Status
 
 ```text
-LAB 02: PASS
+LAB 03: PASS
 ```
 
-The lab should only be marked `PASS` after all examples have been built and executed successfully.
+Change the status to `PASS` only after all examples have been successfully built and executed.

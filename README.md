@@ -130,8 +130,8 @@ Topics such as production optimization, zero-copy pipelines, DMA-BUF integration
 ```text
 Lab 01 : COMPLETE
 Lab 02 : COMPLETE
-Lab 03 : PLANNED
-Lab 04 : PLANNED
+Lab 03 : COMPLETE
+Lab 04 : COMPLETE
 Lab 05 : PLANNED
 Lab 06 : PLANNED
 Lab 07 : PLANNED
