@@ -16,13 +16,16 @@ static GstElement* create_and_add_element(GstBin* bin, const char* factory_name,
         return nullptr;
     }
 
+    gst_object_ref_sink(element);
+
     if (gst_bin_add(bin, element) == FALSE) {
         std::cerr << "Failed to add element '" << element_name << "'\n";
         gst_object_unref(element);
         return nullptr;
     }
 
-    return element;
+    gst_object_unref(element);
+    return element; // Borrowed from bin while the bin remains alive.
 }
 
 /**
@@ -69,13 +72,18 @@ static GstPad* request_and_link_tee_pad(GstElement* tee, GstElement* queue)
 
 /**
  * @brief Unlinks, releases and drops the caller's request-pad reference.
+ * @return true if the released pad is no longer present on tee.
  */
-static void release_tee_pad(GstElement* tee, GstPad* tee_src_pad, GstElement* queue)
+static bool release_tee_pad(GstElement* tee, GstPad* tee_src_pad, GstElement* queue)
 {
+    gchar* pad_name = gst_object_get_name(GST_OBJECT(tee_src_pad));
     GstPad* queue_sink_pad = gst_element_get_static_pad(queue, "sink");
+    bool unlinked = false;
 
     if (queue_sink_pad != nullptr) {
-        if (gst_pad_unlink(tee_src_pad, queue_sink_pad) == FALSE) {
+        unlinked = gst_pad_unlink(tee_src_pad, queue_sink_pad) != FALSE;
+
+        if (!unlinked) {
             std::cerr << "Failed to unlink tee branch\n";
         }
 
@@ -84,6 +92,16 @@ static void release_tee_pad(GstElement* tee, GstPad* tee_src_pad, GstElement* qu
 
     gst_element_release_request_pad(tee, tee_src_pad);
     gst_object_unref(tee_src_pad);
+
+    GstPad* remaining_pad = gst_element_get_static_pad(tee, pad_name);
+    const bool released = remaining_pad == nullptr;
+
+    if (remaining_pad != nullptr) {
+        gst_object_unref(remaining_pad);
+    }
+
+    g_free(pad_name);
+    return unlinked && released;
 }
 
 int main(int argc, char* argv[])
@@ -147,10 +165,15 @@ int main(int argc, char* argv[])
 
     std::cout << "Two tee branches created successfully\n";
 
-    release_tee_pad(tee, tee_src_b, queue_b);
-    release_tee_pad(tee, tee_src_a, queue_a);
+    const bool branch_b_released = release_tee_pad(tee, tee_src_b, queue_b);
+    const bool branch_a_released = release_tee_pad(tee, tee_src_a, queue_a);
 
     gst_object_unref(pipeline);
+
+    if (!branch_a_released || !branch_b_released) {
+        std::cerr << "A tee request pad remained after release\n";
+        return 1;
+    }
 
     std::cout << "Request pad lifecycle: PASS\n";
     return 0;

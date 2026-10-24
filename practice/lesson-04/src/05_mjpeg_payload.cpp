@@ -4,6 +4,8 @@
 
 struct HandoffContext {
     guint buffer_count = 0;
+    bool caps_valid = false;
+    bool payloads_valid = true;
 };
 
 /**
@@ -17,12 +19,15 @@ static GstElement* create_and_add_element(GstBin* bin, const char* factory_name,
         return nullptr;
     }
 
+    gst_object_ref_sink(element);
+
     if (gst_bin_add(bin, element) == FALSE) {
         gst_object_unref(element);
         return nullptr;
     }
 
-    return element;
+    gst_object_unref(element);
+    return element; // Borrowed from bin while the bin remains alive.
 }
 
 /**
@@ -37,6 +42,9 @@ static void on_handoff(GstElement*, GstBuffer* buffer, GstPad* pad, gpointer use
         GstCaps* caps = gst_pad_get_current_caps(pad);
 
         if (caps != nullptr) {
+            const GstStructure* structure = gst_caps_get_size(caps) == 1 ? gst_caps_get_structure(caps, 0) : nullptr;
+            context->caps_valid = structure != nullptr &&
+                g_strcmp0(gst_structure_get_name(structure), "image/jpeg") == 0;
             gchar* caps_text = gst_caps_to_string(caps);
             std::cout << "Compressed caps: " << caps_text << '\n';
             g_free(caps_text);
@@ -44,6 +52,7 @@ static void on_handoff(GstElement*, GstBuffer* buffer, GstPad* pad, gpointer use
         }
     }
 
+    context->payloads_valid &= gst_buffer_get_size(buffer) > 0;
     std::cout << "JPEG frame " << context->buffer_count
               << " payload: " << gst_buffer_get_size(buffer)
               << " bytes\n";
@@ -98,23 +107,40 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    gst_element_set_state(pipeline, GST_STATE_PLAYING);
+    if (gst_element_set_state(pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE) {
+        std::cerr << "Failed to start MJPEG pipeline\n";
+        gst_element_set_state(pipeline, GST_STATE_NULL);
+        gst_object_unref(bus);
+        gst_object_unref(pipeline);
+        return 1;
+    }
 
     GstMessage* message = gst_bus_timed_pop_filtered(
-        bus, GST_CLOCK_TIME_NONE,
+        bus, 10 * GST_SECOND,
         static_cast<GstMessageType>(GST_MESSAGE_EOS | GST_MESSAGE_ERROR));
 
     const bool success = message != nullptr && GST_MESSAGE_TYPE(message) == GST_MESSAGE_EOS;
+
+    if (message != nullptr && GST_MESSAGE_TYPE(message) == GST_MESSAGE_ERROR) {
+        GError* error = nullptr;
+        gchar* debug = nullptr;
+        gst_message_parse_error(message, &error, &debug);
+        std::cerr << "Pipeline error: " << error->message << '\n';
+        g_error_free(error);
+        g_free(debug);
+    } else if (message == nullptr) {
+        std::cerr << "Timed out waiting for EOS\n";
+    }
 
     if (message != nullptr) {
         gst_message_unref(message);
     }
 
-    gst_element_set_state(pipeline, GST_STATE_NULL);
+    const bool stopped = gst_element_set_state(pipeline, GST_STATE_NULL) != GST_STATE_CHANGE_FAILURE;
     gst_object_unref(bus);
     gst_object_unref(pipeline);
 
-    if (!success || context.buffer_count != 5) {
+    if (!success || !stopped || context.buffer_count != 5 || !context.caps_valid || !context.payloads_valid) {
         return 1;
     }
 

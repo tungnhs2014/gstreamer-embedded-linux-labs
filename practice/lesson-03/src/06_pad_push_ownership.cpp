@@ -27,6 +27,18 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    // Announce a stream and segment before pushing data, even without a peer.
+    GstSegment segment;
+    gst_segment_init(&segment, GST_FORMAT_BYTES);
+
+    if (!gst_pad_push_event(src_pad, gst_event_new_stream_start("ownership-demo")) ||
+        !gst_pad_push_event(src_pad, gst_event_new_segment(&segment))) {
+        std::cerr << "Failed to prepare source pad events\n";
+        gst_pad_set_active(src_pad, FALSE);
+        gst_object_unref(src_pad);
+        return 1;
+    }
+
     GstBuffer* buffer = gst_buffer_new_allocate(nullptr, 32, nullptr);
 
     if (buffer == nullptr) {
@@ -41,14 +53,15 @@ int main(int argc, char* argv[])
     const GstFlowReturn result = gst_pad_push(src_pad, buffer);
 
     std::cout << "Push result         : " << gst_flow_get_name(result) << '\n';
+    const bool retained_size_ok = gst_buffer_get_size(retained) == 32;
     std::cout << "Retained buffer size: " << gst_buffer_get_size(retained) << '\n';
 
     gst_buffer_unref(retained);
     gst_pad_set_active(src_pad, FALSE);
     gst_object_unref(src_pad);
 
-    if (result != GST_FLOW_NOT_LINKED) {
-        std::cerr << "Expected controlled NOT_LINKED result\n";
+    if (result != GST_FLOW_NOT_LINKED || !retained_size_ok) {
+        std::cerr << "Push result or retained buffer size was unexpected\n";
         return 1;
     }
 

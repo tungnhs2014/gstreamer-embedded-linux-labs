@@ -45,9 +45,11 @@ static const char* pad_presence_to_string(GstPadPresence presence)
  *
  * @param element Element that owns the pad.
  * @param pad_name Name of the static pad to inspect.
- * @return true when the pad and its template are valid.
+ * @param expected_direction Direction required for this pad.
+ * @return true when the pad and its ALWAYS template match the expectation.
  */
-static bool inspect_static_pad(GstElement* element, const char* pad_name)
+static bool inspect_static_pad(GstElement* element, const char* pad_name,
+                               GstPadDirection expected_direction)
 {
     // Full reference returned to the caller.
     GstPad* pad = gst_element_get_static_pad(element, pad_name);
@@ -84,11 +86,15 @@ static bool inspect_static_pad(GstElement* element, const char* pad_name)
     std::cout << "Presence      : " << pad_presence_to_string(GST_PAD_TEMPLATE_PRESENCE(pad_template)) << '\n';
     std::cout << "Template caps : " << (gst_caps_is_any(template_caps) ? "ANY" : "specific caps") << "\n\n";
 
+    const bool valid = gst_pad_get_direction(pad) == expected_direction &&
+        GST_PAD_TEMPLATE_PRESENCE(pad_template) == GST_PAD_ALWAYS &&
+        g_strcmp0(GST_PAD_TEMPLATE_NAME_TEMPLATE(pad_template), pad_name) == 0;
+
     gst_caps_unref(template_caps);
     gst_object_unref(pad_template);
     gst_object_unref(pad);
 
-    return true;
+    return valid;
 }
 
 int main(int argc, char* argv[])
@@ -114,8 +120,8 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    const bool sink_ok = inspect_static_pad(identity, "sink");
-    const bool src_ok = inspect_static_pad(identity, "src");
+    const bool sink_ok = inspect_static_pad(identity, "sink", GST_PAD_SINK);
+    const bool src_ok = inspect_static_pad(identity, "src", GST_PAD_SRC);
 
     gst_object_unref(identity);
 

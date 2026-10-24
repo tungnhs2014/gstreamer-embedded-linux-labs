@@ -19,13 +19,16 @@ static GstElement* create_and_add_element(GstBin* bin, const char* factory_name,
         return nullptr;
     }
 
+    gst_object_ref_sink(element);
+
     if (gst_bin_add(bin, element) == FALSE) {
         std::cerr << "Failed to add element '" << element_name << "'\n";
         gst_object_unref(element);
         return nullptr;
     }
 
-    return element;
+    gst_object_unref(element);
+    return element; // Borrowed from bin while the bin remains alive.
 }
 
 /**

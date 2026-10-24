@@ -396,14 +396,16 @@ meson setup build
 meson compile -C build
 ```
 
-If the build directory was configured before the custom GStreamer environment was activated, recreate it:
+If an existing build directory still resolves dependencies from another
+GStreamer installation, keep it intact and use a separate build directory:
 
 ```bash
-rm -rf build
-
-meson setup build
-meson compile -C build
+meson setup build-custom
+meson compile -C build-custom
 ```
+
+Run examples from `build-custom/` in that case. Check the configured dependency
+paths before deciding which build directory to use.
 
 ---
 
@@ -833,6 +835,12 @@ Lab 04 is complete when:
 [PASS] Build produces no project-source warnings
 ```
 
+The runtime checks require YUY2 caps and three raw buffers in Example 03,
+YUY2-to-I420 negotiated formats in Example 04, five non-empty JPEG buffers
+with `image/jpeg` caps in Example 05, and three buffers reaching the NV12 sink
+after JPEG decode in Example 06. Finite pipelines must reach EOS rather than
+ERROR or a timeout.
+
 After completing the lab, you should be able to explain:
 
 ```text
@@ -862,3 +870,7 @@ LAB 04: PASS
 ```
 
 Change the status to `PASS` only after all examples have been successfully built and executed.
+
+All six examples were built and run with the custom GStreamer 1.28.6
+installation on 2026-10-24. The caps and buffer checks above passed for that
+environment; they do not assert a universal stride or JPEG payload size.

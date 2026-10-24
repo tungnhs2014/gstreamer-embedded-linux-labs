@@ -1,5 +1,6 @@
 #include <gst/gst.h>
 
+#include <algorithm>
 #include <array>
 #include <iostream>
 
@@ -68,6 +69,13 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    if (map.size < yuy2_data.size()) {
+        std::cerr << "Mapped buffer is too small\n";
+        gst_buffer_unmap(buffer, &map);
+        gst_buffer_unref(buffer);
+        return 1;
+    }
+
     std::copy(yuy2_data.begin(), yuy2_data.end(), map.data);
     gst_buffer_unmap(buffer, &map);
 
@@ -77,7 +85,9 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    const bool valid = print_yuy2_pairs(map.data, map.size);
+    const bool valid = map.size == yuy2_data.size() &&
+        std::equal(yuy2_data.begin(), yuy2_data.end(), map.data) &&
+        print_yuy2_pairs(map.data, map.size);
 
     gst_buffer_unmap(buffer, &map);
     gst_buffer_unref(buffer);

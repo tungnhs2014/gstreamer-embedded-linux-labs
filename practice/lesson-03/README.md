@@ -288,6 +288,9 @@ ownership transferred
 
 The caller must not unref the same reference after `gst_pad_push()`.
 
+The standalone source pad sends stream-start and segment events before its
+buffer. Since it has no peer, `GST_FLOW_NOT_LINKED` is the expected result.
+
 If the application needs to retain access:
 
 ```text
@@ -636,6 +639,11 @@ Lab 03 is complete when:
 [PASS] Build produces no project-source warnings
 ```
 
+The programs also check their core observations before printing PASS: memory
+block counts; writable-buffer byte isolation; copy contents and isolation;
+metadata values without payload; pool exhaustion and reuse; the retained
+buffer after a failed push; and one probe callback reading byte `0x7E`.
+
 After completing the lab, you should be able to explain:
 
 ```text
@@ -665,3 +673,7 @@ LAB 03: PASS
 ```
 
 Change the status to `PASS` only after all examples have been successfully built and executed.
+
+All seven examples were built and run with the custom GStreamer 1.28.6
+installation on 2026-10-24. The two standalone-pad examples completed without
+stream-start or segment warnings after sending the required events.

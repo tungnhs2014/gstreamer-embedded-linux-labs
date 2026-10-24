@@ -67,8 +67,17 @@ int main(int argc, char* argv[])
 
     GstReferenceTimestampMeta* copied_meta = gst_buffer_get_reference_timestamp_meta(metadata_copy, reference);
 
-    if (copied_meta == nullptr) {
-        std::cerr << "Reference timestamp metadata was not copied\n";
+    if (copied_meta == nullptr ||
+        GST_BUFFER_PTS(metadata_copy) != 100 * GST_MSECOND ||
+        GST_BUFFER_DTS(metadata_copy) != 90 * GST_MSECOND ||
+        GST_BUFFER_DURATION(metadata_copy) != 33 * GST_MSECOND ||
+        GST_BUFFER_OFFSET(metadata_copy) != 42 ||
+        GST_BUFFER_OFFSET_END(metadata_copy) != 43 ||
+        !GST_BUFFER_FLAG_IS_SET(metadata_copy, GST_BUFFER_FLAG_DISCONT) ||
+        gst_buffer_n_memory(metadata_copy) != 0 ||
+        copied_meta->timestamp != 500 * GST_MSECOND ||
+        copied_meta->duration != 33 * GST_MSECOND) {
+        std::cerr << "Copied metadata differs from the source\n";
         gst_buffer_unref(metadata_copy);
         gst_caps_unref(reference);
         gst_buffer_unref(buffer);

@@ -43,7 +43,13 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    const bool initially_empty = gst_buffer_n_memory(buffer) == 0;
     std::cout << "Initial memory blocks: " << gst_buffer_n_memory(buffer) << '\n';
+
+    if (!initially_empty) {
+        gst_buffer_unref(buffer);
+        return 1;
+    }
 
     GstMemory* memory = gst_allocator_alloc(nullptr, 64, nullptr);
 
@@ -58,7 +64,13 @@ int main(int argc, char* argv[])
     // Ownership of memory is transferred to buffer.
     gst_buffer_append_memory(buffer, memory);
 
+    const bool one_memory_block = gst_buffer_n_memory(buffer) == 1;
     std::cout << "Memory blocks after append: " << gst_buffer_n_memory(buffer) << "\n\n";
+
+    if (!one_memory_block) {
+        gst_buffer_unref(buffer);
+        return 1;
+    }
 
     // Borrowed pointer. Do not unref.
     GstMemory* borrowed_memory = gst_buffer_peek_memory(buffer, 0);

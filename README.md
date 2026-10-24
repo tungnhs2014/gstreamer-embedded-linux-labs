@@ -34,11 +34,12 @@ The examples are intentionally incremental. Each example introduces a small numb
 └── practice/
     ├── lesson-01/
     │   └── README.md
-    └── lesson-02/
-        ├── README.md
-        ├── meson.build
-        └── src/
+    ├── lesson-02/
+    ├── lesson-03/
+    └── lesson-04/
 ```
+
+Each C++ lab (02–04) contains `README.md`, `meson.build`, and `src/`.
 
 Generated build directories, local Python virtual environments, GStreamer upstream source trees and machine-specific environment files are intentionally excluded from version control.
 
@@ -78,6 +79,7 @@ Verify the active GStreamer installation:
 gst-launch-1.0 --version
 gst-inspect-1.0 --version
 pkg-config --modversion gstreamer-1.0
+pkg-config --variable=prefix gstreamer-1.0
 ```
 
 The expected GStreamer version for the current labs is:
@@ -85,6 +87,8 @@ The expected GStreamer version for the current labs is:
 ```text
 1.28.6
 ```
+
+The prefix should be `$HOME/opt/gstreamer` before configuring a Meson build.
 
 ## Building a C++ Lab
 
@@ -137,3 +141,7 @@ Lab 06 : PLANNED
 Lab 07 : PLANNED
 Lab 08 : PLANNED
 ```
+
+The 20 C++ examples in Labs 02–04 were built and run with the custom GStreamer
+1.28.6 installation on 2026-10-24. Lab 01's status records its earlier
+command-line validation; its commands were not rerun as part of that C++ check.

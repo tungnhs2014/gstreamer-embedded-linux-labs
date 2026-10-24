@@ -43,7 +43,7 @@ static bool write_first_byte(GstBuffer*& buffer, guint8 value)
 
     buffer = gst_buffer_make_writable(buffer);
 
-    if (buffer == nullptr) {
+    if (buffer == nullptr || !gst_buffer_is_writable(buffer)) {
         return false;
     }
 
@@ -92,11 +92,12 @@ int main(int argc, char* argv[])
     }
 
     GstBuffer* shared_buffer = gst_buffer_ref(buffer);
+    const bool shared_is_not_writable = !gst_buffer_is_writable(buffer);
 
     std::cout << "Writable with two references: "
               << (gst_buffer_is_writable(buffer) ? "yes" : "no") << '\n';
 
-    if (!write_first_byte(buffer, 0xAA)) {
+    if (!shared_is_not_writable || !write_first_byte(buffer, 0xAA)) {
         std::cerr << "Failed to modify writable buffer\n";
         gst_buffer_unref(shared_buffer);
 

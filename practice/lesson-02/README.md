@@ -308,9 +308,17 @@ SOMETIMES
     element creates the pad when runtime stream information becomes available
 ```
 
+The JPEG encoder supplies a finite encoded stream so `decodebin` exposes a
+dynamic pad. JPEG format details are taught in Lab 04; this example checks the
+`pad-added` callback and link.
+
 ---
 
 ## 3. Build
+
+Required elements are `videotestsrc`, `identity`, `videoconvert`, `fakesink`,
+`audiotestsrc`, `tee`, `queue`, `jpegenc`, and `decodebin`. Check a missing
+element with `gst-inspect-1.0 ELEMENT_NAME` after sourcing `env.sh`.
 
 Activate the development environment first:
 
@@ -527,3 +535,8 @@ LAB 02: PASS
 ```
 
 The lab should only be marked `PASS` after all examples have been built and executed successfully.
+
+The seven examples were built and run with the custom GStreamer 1.28.6
+installation on 2026-10-24. The request-pad example also checks that both
+released pads are absent, and the dynamic-pad example checks that its callback
+linked a raw-video pad.

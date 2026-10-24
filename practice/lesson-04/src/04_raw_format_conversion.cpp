@@ -13,18 +13,22 @@ static GstElement* create_and_add_element(GstBin* bin, const char* factory_name,
         return nullptr;
     }
 
+    gst_object_ref_sink(element);
+
     if (gst_bin_add(bin, element) == FALSE) {
         gst_object_unref(element);
         return nullptr;
     }
 
-    return element;
+    gst_object_unref(element);
+    return element; // Borrowed from bin while the bin remains alive.
 }
 
 /**
- * @brief Prints current negotiated caps for one element pad.
+ * @brief Prints and validates the negotiated raw format on one element pad.
  */
-static bool print_current_caps(GstElement* element, const char* pad_name, const char* label)
+static bool check_current_caps(GstElement* element, const char* pad_name,
+                               const char* label, const char* expected_format)
 {
     GstPad* pad = gst_element_get_static_pad(element, pad_name);
 
@@ -39,13 +43,17 @@ static bool print_current_caps(GstElement* element, const char* pad_name, const 
         return false;
     }
 
+    const GstStructure* structure = gst_caps_get_size(caps) == 1 ? gst_caps_get_structure(caps, 0) : nullptr;
+    const bool valid = structure != nullptr &&
+        g_strcmp0(gst_structure_get_name(structure), "video/x-raw") == 0 &&
+        g_strcmp0(gst_structure_get_string(structure, "format"), expected_format) == 0;
     gchar* caps_text = gst_caps_to_string(caps);
     std::cout << label << ": " << caps_text << '\n';
 
     g_free(caps_text);
     gst_caps_unref(caps);
 
-    return true;
+    return valid;
 }
 
 int main(int argc, char* argv[])
@@ -102,6 +110,7 @@ int main(int argc, char* argv[])
     }
 
     if (gst_element_set_state(pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE) {
+        gst_element_set_state(pipeline, GST_STATE_NULL);
         gst_object_unref(pipeline);
         return 1;
     }
@@ -114,13 +123,13 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    const bool input_ok = print_current_caps(converter, "sink", "Converter input");
-    const bool output_ok = print_current_caps(converter, "src", "Converter output");
+    const bool input_ok = check_current_caps(converter, "sink", "Converter input", "YUY2");
+    const bool output_ok = check_current_caps(converter, "src", "Converter output", "I420");
 
-    gst_element_set_state(pipeline, GST_STATE_NULL);
+    const bool stopped = gst_element_set_state(pipeline, GST_STATE_NULL) != GST_STATE_CHANGE_FAILURE;
     gst_object_unref(pipeline);
 
-    if (!input_ok || !output_ok) {
+    if (!input_ok || !output_ok || !stopped) {
         return 1;
     }
 

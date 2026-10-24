@@ -14,13 +14,16 @@ static GstElement* create_and_add_element(GstBin* bin, const char* factory_name,
         return nullptr;
     }
 
+    gst_object_ref_sink(element);
+
     if (gst_bin_add(bin, element) == FALSE) {
         std::cerr << "Failed to add element '" << element_name << "'\n";
         gst_object_unref(element);
         return nullptr;
     }
 
-    return element;
+    gst_object_unref(element);
+    return element; // Borrowed from bin while the bin remains alive.
 }
 
 /**
@@ -43,12 +46,16 @@ static bool add_ghost_pad(GstElement* bin, const char* ghost_name, GstElement* c
         return false;
     }
 
+    // Keep our own reference because an add failure may consume a floating pad.
+    gst_object_ref_sink(ghost_pad);
+
     if (gst_element_add_pad(bin, ghost_pad) == FALSE) {
         std::cerr << "Failed to add ghost pad '" << ghost_name << "'\n";
         gst_object_unref(ghost_pad);
         return false;
     }
 
+    gst_object_unref(ghost_pad);
     return true;
 }
 
@@ -165,12 +172,16 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    gst_object_ref_sink(processing_bin);
+
     if (gst_bin_add(GST_BIN(pipeline), processing_bin) == FALSE) {
         std::cerr << "Failed to add processing-bin to pipeline\n";
         gst_object_unref(processing_bin);
         gst_object_unref(pipeline);
         return 1;
     }
+
+    gst_object_unref(processing_bin); // Pipeline now owns the bin.
 
     if (!verify_ghost_pad(processing_bin, "sink") || !verify_ghost_pad(processing_bin, "src")) {
         gst_object_unref(pipeline);

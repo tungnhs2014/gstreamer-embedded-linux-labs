@@ -11,7 +11,7 @@
  */
 class BufferMap final {
   public:
-    BufferMap(GstBuffer* buffer, GstMapFlags flags) : buffer(buffer), flags(flags)
+    BufferMap(GstBuffer* buffer, GstMapFlags flags) : buffer(buffer)
     {
         if (buffer != nullptr) {
             mapped = gst_buffer_map(buffer, &map, flags) != FALSE;
@@ -48,15 +48,21 @@ class BufferMap final {
   private:
     GstBuffer* buffer = nullptr;
     GstMapInfo map = GST_MAP_INFO_INIT;
-    GstMapFlags flags = GST_MAP_READ;
     bool mapped = false;
+};
+
+struct ProbeContext {
+    guint count = 0;
+    bool valid = false;
 };
 
 /**
  * @brief Inspects a borrowed buffer passing through a source pad.
  */
-static GstPadProbeReturn on_buffer_probe(GstPad*, GstPadProbeInfo* info, gpointer)
+static GstPadProbeReturn on_buffer_probe(GstPad*, GstPadProbeInfo* info, gpointer user_data)
 {
+    auto* context = static_cast<ProbeContext*>(user_data);
+    ++context->count;
     GstBuffer* buffer = gst_pad_probe_info_get_buffer(info);
 
     if (buffer == nullptr) {
@@ -70,6 +76,8 @@ static GstPadProbeReturn on_buffer_probe(GstPad*, GstPadProbeInfo* info, gpointe
         std::cerr << "Failed to map probed buffer\n";
         return GST_PAD_PROBE_OK;
     }
+
+    context->valid = mapped.size() == 16 && mapped.data()[0] == 0x7E;
 
     std::cout << "Probe buffer size: " << mapped.size() << '\n';
 
@@ -121,8 +129,20 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    GstSegment segment;
+    gst_segment_init(&segment, GST_FORMAT_BYTES);
+
+    if (!gst_pad_push_event(src_pad, gst_event_new_stream_start("probe-demo")) ||
+        !gst_pad_push_event(src_pad, gst_event_new_segment(&segment))) {
+        std::cerr << "Failed to prepare source pad events\n";
+        gst_pad_set_active(src_pad, FALSE);
+        gst_object_unref(src_pad);
+        return 1;
+    }
+
+    ProbeContext context{};
     const gulong probe_id =
-        gst_pad_add_probe(src_pad, GST_PAD_PROBE_TYPE_BUFFER, on_buffer_probe, nullptr, nullptr);
+        gst_pad_add_probe(src_pad, GST_PAD_PROBE_TYPE_BUFFER, on_buffer_probe, &context, nullptr);
 
     if (probe_id == 0) {
         std::cerr << "Failed to install pad probe\n";
@@ -152,8 +172,8 @@ int main(int argc, char* argv[])
     gst_pad_set_active(src_pad, FALSE);
     gst_object_unref(src_pad);
 
-    if (result != GST_FLOW_NOT_LINKED) {
-        std::cerr << "Expected controlled NOT_LINKED result\n";
+    if (result != GST_FLOW_NOT_LINKED || context.count != 1 || !context.valid) {
+        std::cerr << "Pad probe did not observe the expected buffer\n";
         return 1;
     }
 
