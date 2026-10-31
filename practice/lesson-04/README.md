@@ -1,5 +1,7 @@
 # Lab 04 — Raw Video, YUY2 and MJPEG
 
+Theory: [Lesson 04](../../knowledge/04-gstreamer-raw-video-yuyv-yuy2-mjpeg-formats-final.md) · [Full theory-to-lab map](../../knowledge/README.md). This lab verifies only the outcomes stated in its examples and completion criteria.
+
 ## 1. Objective
 
 This lab introduces the media-format concepts required to correctly interpret video payloads in GStreamer.
@@ -789,7 +791,10 @@ video/x-raw
 consumer
 ```
 
-Actual camera capabilities, `bytesperline`, `sizeimage`, `bytesused`, buffer queueing and V4L2 ownership are handled in Lab 06.
+Lab 06 covers camera discovery, advertised formats and sizes, and capture through
+`v4l2src`. Direct V4L2 buffer queue management and fields such as
+`bytesperline`, `sizeimage` and `bytesused` are outside these labs' scope.
+They remain required concepts in [theory Lesson 04](../../knowledge/04-gstreamer-raw-video-yuyv-yuy2-mjpeg-formats-final.md); none of the Lab 04 examples directly measures these V4L2 fields.
 
 ---
 

@@ -1,5 +1,7 @@
 # Lab 02 — GStreamer Object Model
 
+Theory: [Lesson 02](../../knowledge/02-gstreamer-object-model-plugin-element-pad-bin-pipeline.md) · [Full theory-to-lab map](../../knowledge/README.md). This lab verifies only the outcomes stated in its examples and completion criteria.
+
 ## 1. Objective
 
 This lab introduces the core GStreamer object model through incremental C++17 examples.

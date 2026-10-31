@@ -1,5 +1,7 @@
 # Lab 03 — GstBuffer, GstMemory and Data Ownership
 
+Theory: [Lesson 03](../../knowledge/03-gstreamer-gstbuffer-gstmemory-data-lifecycle-updated.md) · [Full theory-to-lab map](../../knowledge/README.md). This lab verifies only the outcomes stated in its examples and completion criteria.
+
 ## 1. Objective
 
 This lab introduces the GStreamer data model used to carry media through a pipeline.

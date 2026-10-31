@@ -14,11 +14,13 @@
  * @param element_name Element instance name.
  * @return Borrowed pointer owned by @p bin, or nullptr on failure.
  */
-static GstElement* create_and_add_element(GstBin* bin, const char* factory_name, const char* element_name)
+static GstElement* create_and_add_element(GstBin* bin, const char* factory_name,
+                                          const char* element_name)
 {
     GstElement* element = gst_element_factory_make(factory_name, element_name);
 
-    if (element == nullptr) {
+    if (element == nullptr)
+    {
         std::cerr << "Failed to create element '" << element_name << "'\n";
         return nullptr;
     }
@@ -27,7 +29,8 @@ static GstElement* create_and_add_element(GstBin* bin, const char* factory_name,
     // in how they handle a floating reference.
     gst_object_ref_sink(element);
 
-    if (gst_bin_add(bin, element) == FALSE) {
+    if (gst_bin_add(bin, element) == FALSE)
+    {
         std::cerr << "Failed to add element '" << element_name << "' to bin\n";
         gst_object_unref(element);
         return nullptr;
@@ -48,7 +51,8 @@ static bool verify_parent(GstElement* element, GstObject* expected_parent)
 {
     GstObject* parent = gst_object_get_parent(GST_OBJECT(element));
 
-    if (parent == nullptr) {
+    if (parent == nullptr)
+    {
         std::cerr << "Element '" << GST_ELEMENT_NAME(element) << "' has no parent\n";
         return false;
     }
@@ -68,10 +72,12 @@ int main(int argc, char* argv[])
 {
     GError* error = nullptr;
 
-    if (gst_init_check(&argc, &argv, &error) == FALSE) {
+    if (gst_init_check(&argc, &argv, &error) == FALSE)
+    {
         std::cerr << "Failed to initialize GStreamer";
 
-        if (error != nullptr) {
+        if (error != nullptr)
+        {
             std::cerr << ": " << error->message;
             g_error_free(error);
         }
@@ -82,7 +88,8 @@ int main(int argc, char* argv[])
 
     GstElement* pipeline = gst_pipeline_new("lesson-02-pipeline");
 
-    if (pipeline == nullptr) {
+    if (pipeline == nullptr)
+    {
         std::cerr << "Failed to create pipeline\n";
         return 1;
     }
@@ -94,12 +101,14 @@ int main(int argc, char* argv[])
 
     GstElement* source = create_and_add_element(GST_BIN(pipeline), "videotestsrc", "test-source");
 
-    if (source == nullptr) {
+    if (source == nullptr)
+    {
         gst_object_unref(pipeline);
         return 1;
     }
 
-    if (!verify_parent(source, GST_OBJECT(pipeline))) {
+    if (!verify_parent(source, GST_OBJECT(pipeline)))
+    {
         gst_object_unref(pipeline);
         return 1;
     }

@@ -6,8 +6,10 @@ int main(int argc, char* argv[])
 {
     GError* error = nullptr;
 
-    if (gst_init_check(&argc, &argv, &error) == FALSE) {
-        if (error != nullptr) {
+    if (gst_init_check(&argc, &argv, &error) == FALSE)
+    {
+        if (error != nullptr)
+        {
             g_error_free(error);
         }
 
@@ -16,12 +18,14 @@ int main(int argc, char* argv[])
 
     GstPad* src_pad = gst_pad_new("src", GST_PAD_SRC);
 
-    if (src_pad == nullptr) {
+    if (src_pad == nullptr)
+    {
         std::cerr << "Failed to create source pad\n";
         return 1;
     }
 
-    if (gst_pad_set_active(src_pad, TRUE) == FALSE) {
+    if (gst_pad_set_active(src_pad, TRUE) == FALSE)
+    {
         std::cerr << "Failed to activate source pad\n";
         gst_object_unref(src_pad);
         return 1;
@@ -32,7 +36,8 @@ int main(int argc, char* argv[])
     gst_segment_init(&segment, GST_FORMAT_BYTES);
 
     if (!gst_pad_push_event(src_pad, gst_event_new_stream_start("ownership-demo")) ||
-        !gst_pad_push_event(src_pad, gst_event_new_segment(&segment))) {
+        !gst_pad_push_event(src_pad, gst_event_new_segment(&segment)))
+    {
         std::cerr << "Failed to prepare source pad events\n";
         gst_pad_set_active(src_pad, FALSE);
         gst_object_unref(src_pad);
@@ -41,7 +46,8 @@ int main(int argc, char* argv[])
 
     GstBuffer* buffer = gst_buffer_new_allocate(nullptr, 32, nullptr);
 
-    if (buffer == nullptr) {
+    if (buffer == nullptr)
+    {
         gst_pad_set_active(src_pad, FALSE);
         gst_object_unref(src_pad);
         return 1;
@@ -60,7 +66,8 @@ int main(int argc, char* argv[])
     gst_pad_set_active(src_pad, FALSE);
     gst_object_unref(src_pad);
 
-    if (result != GST_FLOW_NOT_LINKED || !retained_size_ok) {
+    if (result != GST_FLOW_NOT_LINKED || !retained_size_ok)
+    {
         std::cerr << "Push result or retained buffer size was unexpected\n";
         return 1;
     }

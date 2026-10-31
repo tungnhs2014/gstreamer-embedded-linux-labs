@@ -24,10 +24,12 @@ int main(int argc, char* argv[])
 {
     GError* error = nullptr;
 
-    if (gst_init_check(&argc, &argv, &error) == FALSE) {
+    if (gst_init_check(&argc, &argv, &error) == FALSE)
+    {
         std::cerr << "Failed to initialize GStreamer";
 
-        if (error != nullptr) {
+        if (error != nullptr)
+        {
             std::cerr << ": " << error->message;
             g_error_free(error);
         }
@@ -38,7 +40,8 @@ int main(int argc, char* argv[])
 
     GstBuffer* buffer = gst_buffer_new();
 
-    if (buffer == nullptr) {
+    if (buffer == nullptr)
+    {
         std::cerr << "Failed to create GstBuffer\n";
         return 1;
     }
@@ -46,14 +49,16 @@ int main(int argc, char* argv[])
     const bool initially_empty = gst_buffer_n_memory(buffer) == 0;
     std::cout << "Initial memory blocks: " << gst_buffer_n_memory(buffer) << '\n';
 
-    if (!initially_empty) {
+    if (!initially_empty)
+    {
         gst_buffer_unref(buffer);
         return 1;
     }
 
     GstMemory* memory = gst_allocator_alloc(nullptr, 64, nullptr);
 
-    if (memory == nullptr) {
+    if (memory == nullptr)
+    {
         std::cerr << "Failed to allocate GstMemory\n";
         gst_buffer_unref(buffer);
         return 1;
@@ -67,7 +72,8 @@ int main(int argc, char* argv[])
     const bool one_memory_block = gst_buffer_n_memory(buffer) == 1;
     std::cout << "Memory blocks after append: " << gst_buffer_n_memory(buffer) << "\n\n";
 
-    if (!one_memory_block) {
+    if (!one_memory_block)
+    {
         gst_buffer_unref(buffer);
         return 1;
     }
@@ -75,7 +81,8 @@ int main(int argc, char* argv[])
     // Borrowed pointer. Do not unref.
     GstMemory* borrowed_memory = gst_buffer_peek_memory(buffer, 0);
 
-    if (borrowed_memory == nullptr) {
+    if (borrowed_memory == nullptr)
+    {
         std::cerr << "Failed to peek memory\n";
         gst_buffer_unref(buffer);
         return 1;
@@ -86,7 +93,8 @@ int main(int argc, char* argv[])
     // Full reference. Caller must unref.
     GstMemory* owned_memory = gst_buffer_get_memory(buffer, 0);
 
-    if (owned_memory == nullptr) {
+    if (owned_memory == nullptr)
+    {
         std::cerr << "Failed to get memory reference\n";
         gst_buffer_unref(buffer);
         return 1;

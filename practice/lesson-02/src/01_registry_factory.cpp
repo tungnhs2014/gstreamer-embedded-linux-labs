@@ -11,12 +11,15 @@
 static void print_factory_info(GstPlugin* plugin, GstElementFactory* factory)
 {
     const gchar* plugin_filename = gst_plugin_get_filename(plugin);
-    const gchar* long_name = gst_element_factory_get_metadata(factory, GST_ELEMENT_METADATA_LONGNAME);
+    const gchar* long_name =
+        gst_element_factory_get_metadata(factory, GST_ELEMENT_METADATA_LONGNAME);
 
     std::cout << "Plugin name   : " << gst_plugin_get_name(plugin) << '\n';
     std::cout << "Plugin version: " << gst_plugin_get_version(plugin) << '\n';
-    std::cout << "Plugin file   : " << (plugin_filename != nullptr ? plugin_filename : "unknown") << '\n';
-    std::cout << "Factory name  : " << gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)) << '\n';
+    std::cout << "Plugin file   : " << (plugin_filename != nullptr ? plugin_filename : "unknown")
+              << '\n';
+    std::cout << "Factory name  : " << gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory))
+              << '\n';
     std::cout << "Long name     : " << (long_name != nullptr ? long_name : "unknown") << '\n';
 }
 
@@ -24,10 +27,12 @@ int main(int argc, char* argv[])
 {
     GError* error = nullptr;
 
-    if (gst_init_check(&argc, &argv, &error) == FALSE) {
+    if (gst_init_check(&argc, &argv, &error) == FALSE)
+    {
         std::cerr << "Failed to initialize GStreamer";
 
-        if (error != nullptr) {
+        if (error != nullptr)
+        {
             std::cerr << ": " << error->message;
             g_error_free(error);
         }
@@ -40,10 +45,11 @@ int main(int argc, char* argv[])
     GstRegistry* registry = gst_registry_get();
 
     // Full reference. Must be unreffed after use.
-    GstPluginFeature* feature = gst_registry_find_feature(
-        registry, "videotestsrc", GST_TYPE_ELEMENT_FACTORY);
+    GstPluginFeature* feature =
+        gst_registry_find_feature(registry, "videotestsrc", GST_TYPE_ELEMENT_FACTORY);
 
-    if (feature == nullptr) {
+    if (feature == nullptr)
+    {
         std::cerr << "Factory 'videotestsrc' was not found in the registry\n";
         return 1;
     }
@@ -54,7 +60,8 @@ int main(int argc, char* argv[])
     // Full reference to the plugin that provides this feature.
     GstPlugin* plugin = gst_plugin_feature_get_plugin(feature);
 
-    if (plugin == nullptr) {
+    if (plugin == nullptr)
+    {
         std::cerr << "Factory is not associated with a plugin\n";
         gst_object_unref(feature);
         return 1;
@@ -65,7 +72,8 @@ int main(int argc, char* argv[])
     // Create an actual GstElement instance from the factory.
     GstElement* source = gst_element_factory_create(factory, "test-source");
 
-    if (source == nullptr) {
+    if (source == nullptr)
+    {
         std::cerr << "Failed to create element instance\n";
         gst_object_unref(plugin);
         gst_object_unref(feature);

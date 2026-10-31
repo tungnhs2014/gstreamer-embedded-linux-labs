@@ -9,18 +9,21 @@
  * This class does not own the GstBuffer. The buffer must remain valid for the
  * complete lifetime of this object.
  */
-class BufferMap final {
+class BufferMap final
+{
   public:
     BufferMap(GstBuffer* buffer, GstMapFlags flags) : buffer(buffer)
     {
-        if (buffer != nullptr) {
+        if (buffer != nullptr)
+        {
             mapped = gst_buffer_map(buffer, &map, flags) != FALSE;
         }
     }
 
     ~BufferMap() noexcept
     {
-        if (mapped) {
+        if (mapped)
+        {
             gst_buffer_unmap(buffer, &map);
         }
     }
@@ -51,7 +54,8 @@ class BufferMap final {
     bool mapped = false;
 };
 
-struct ProbeContext {
+struct ProbeContext
+{
     guint count = 0;
     bool valid = false;
 };
@@ -65,14 +69,16 @@ static GstPadProbeReturn on_buffer_probe(GstPad*, GstPadProbeInfo* info, gpointe
     ++context->count;
     GstBuffer* buffer = gst_pad_probe_info_get_buffer(info);
 
-    if (buffer == nullptr) {
+    if (buffer == nullptr)
+    {
         return GST_PAD_PROBE_OK;
     }
 
     // Borrowed buffer: inspect it, but do not unref it.
     BufferMap mapped(buffer, GST_MAP_READ);
 
-    if (!mapped.valid()) {
+    if (!mapped.valid())
+    {
         std::cerr << "Failed to map probed buffer\n";
         return GST_PAD_PROBE_OK;
     }
@@ -81,9 +87,10 @@ static GstPadProbeReturn on_buffer_probe(GstPad*, GstPadProbeInfo* info, gpointe
 
     std::cout << "Probe buffer size: " << mapped.size() << '\n';
 
-    if (mapped.size() > 0) {
-        std::cout << "Probe first byte : 0x" << std::hex
-                  << static_cast<unsigned>(mapped.data()[0]) << std::dec << '\n';
+    if (mapped.size() > 0)
+    {
+        std::cout << "Probe first byte : 0x" << std::hex << static_cast<unsigned>(mapped.data()[0])
+                  << std::dec << '\n';
     }
 
     return GST_PAD_PROBE_OK;
@@ -96,7 +103,8 @@ static bool fill_buffer(GstBuffer* buffer, guint8 value)
 {
     GstMapInfo map = GST_MAP_INFO_INIT;
 
-    if (gst_buffer_map(buffer, &map, GST_MAP_WRITE) == FALSE) {
+    if (gst_buffer_map(buffer, &map, GST_MAP_WRITE) == FALSE)
+    {
         return false;
     }
 
@@ -110,8 +118,10 @@ int main(int argc, char* argv[])
 {
     GError* error = nullptr;
 
-    if (gst_init_check(&argc, &argv, &error) == FALSE) {
-        if (error != nullptr) {
+    if (gst_init_check(&argc, &argv, &error) == FALSE)
+    {
+        if (error != nullptr)
+        {
             g_error_free(error);
         }
 
@@ -120,11 +130,13 @@ int main(int argc, char* argv[])
 
     GstPad* src_pad = gst_pad_new("src", GST_PAD_SRC);
 
-    if (src_pad == nullptr) {
+    if (src_pad == nullptr)
+    {
         return 1;
     }
 
-    if (gst_pad_set_active(src_pad, TRUE) == FALSE) {
+    if (gst_pad_set_active(src_pad, TRUE) == FALSE)
+    {
         gst_object_unref(src_pad);
         return 1;
     }
@@ -133,7 +145,8 @@ int main(int argc, char* argv[])
     gst_segment_init(&segment, GST_FORMAT_BYTES);
 
     if (!gst_pad_push_event(src_pad, gst_event_new_stream_start("probe-demo")) ||
-        !gst_pad_push_event(src_pad, gst_event_new_segment(&segment))) {
+        !gst_pad_push_event(src_pad, gst_event_new_segment(&segment)))
+    {
         std::cerr << "Failed to prepare source pad events\n";
         gst_pad_set_active(src_pad, FALSE);
         gst_object_unref(src_pad);
@@ -144,7 +157,8 @@ int main(int argc, char* argv[])
     const gulong probe_id =
         gst_pad_add_probe(src_pad, GST_PAD_PROBE_TYPE_BUFFER, on_buffer_probe, &context, nullptr);
 
-    if (probe_id == 0) {
+    if (probe_id == 0)
+    {
         std::cerr << "Failed to install pad probe\n";
         gst_pad_set_active(src_pad, FALSE);
         gst_object_unref(src_pad);
@@ -153,10 +167,12 @@ int main(int argc, char* argv[])
 
     GstBuffer* buffer = gst_buffer_new_allocate(nullptr, 16, nullptr);
 
-    if (buffer == nullptr || !fill_buffer(buffer, 0x7E)) {
+    if (buffer == nullptr || !fill_buffer(buffer, 0x7E))
+    {
         std::cerr << "Failed to prepare buffer\n";
 
-        if (buffer != nullptr) {
+        if (buffer != nullptr)
+        {
             gst_buffer_unref(buffer);
         }
 
@@ -172,7 +188,8 @@ int main(int argc, char* argv[])
     gst_pad_set_active(src_pad, FALSE);
     gst_object_unref(src_pad);
 
-    if (result != GST_FLOW_NOT_LINKED || context.count != 1 || !context.valid) {
+    if (result != GST_FLOW_NOT_LINKED || context.count != 1 || !context.valid)
+    {
         std::cerr << "Pad probe did not observe the expected buffer\n";
         return 1;
     }

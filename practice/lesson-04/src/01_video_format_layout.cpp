@@ -17,12 +17,14 @@ static bool print_video_layout(GstVideoFormat format, guint width, guint height,
 {
     GstVideoInfo info{};
 
-    if (gst_video_info_set_format(&info, format, width, height) == FALSE) {
+    if (gst_video_info_set_format(&info, format, width, height) == FALSE)
+    {
         std::cerr << "Failed to create video layout\n";
         return false;
     }
 
-    if (GST_VIDEO_INFO_N_PLANES(&info) != expected_planes || GST_VIDEO_INFO_SIZE(&info) == 0) {
+    if (GST_VIDEO_INFO_N_PLANES(&info) != expected_planes || GST_VIDEO_INFO_SIZE(&info) == 0)
+    {
         std::cerr << "Unexpected plane count or empty video layout\n";
         return false;
     }
@@ -31,11 +33,10 @@ static bool print_video_layout(GstVideoFormat format, guint width, guint height,
     std::cout << "Size   : " << GST_VIDEO_INFO_SIZE(&info) << " bytes\n";
     std::cout << "Planes : " << GST_VIDEO_INFO_N_PLANES(&info) << '\n';
 
-    for (guint plane = 0; plane < GST_VIDEO_INFO_N_PLANES(&info); ++plane) {
-        std::cout << "  Plane " << plane
-                  << " offset=" << GST_VIDEO_INFO_PLANE_OFFSET(&info, plane)
-                  << " stride=" << GST_VIDEO_INFO_PLANE_STRIDE(&info, plane)
-                  << '\n';
+    for (guint plane = 0; plane < GST_VIDEO_INFO_N_PLANES(&info); ++plane)
+    {
+        std::cout << "  Plane " << plane << " offset=" << GST_VIDEO_INFO_PLANE_OFFSET(&info, plane)
+                  << " stride=" << GST_VIDEO_INFO_PLANE_STRIDE(&info, plane) << '\n';
     }
 
     std::cout << '\n';
@@ -46,10 +47,12 @@ int main(int argc, char* argv[])
 {
     GError* error = nullptr;
 
-    if (gst_init_check(&argc, &argv, &error) == FALSE) {
+    if (gst_init_check(&argc, &argv, &error) == FALSE)
+    {
         std::cerr << "Failed to initialize GStreamer\n";
 
-        if (error != nullptr) {
+        if (error != nullptr)
+        {
             g_error_free(error);
         }
 
@@ -61,7 +64,8 @@ int main(int argc, char* argv[])
 
     if (!print_video_layout(GST_VIDEO_FORMAT_YUY2, width, height, 1) ||
         !print_video_layout(GST_VIDEO_FORMAT_I420, width, height, 3) ||
-        !print_video_layout(GST_VIDEO_FORMAT_NV12, width, height, 2)) {
+        !print_video_layout(GST_VIDEO_FORMAT_NV12, width, height, 2))
+    {
         return 1;
     }
 

@@ -1,5 +1,7 @@
 # Lab 01 — GStreamer Overview and Media Graph
 
+Theory: [Lesson 01](../../knowledge/01-gstreamer-overview-camera-embedded-linux-updated.md) · [Full theory-to-lab map](../../knowledge/README.md). This lab verifies only the outcomes stated in its examples and completion criteria.
+
 ## 1. Objective
 
 This lab introduces the basic GStreamer runtime workflow using command-line tools.

@@ -7,18 +7,21 @@
  *
  * @return Borrowed pointer owned by the bin, or nullptr on failure.
  */
-static GstElement* create_and_add_element(GstBin* bin, const char* factory_name, const char* element_name)
+static GstElement* create_and_add_element(GstBin* bin, const char* factory_name,
+                                          const char* element_name)
 {
     GstElement* element = gst_element_factory_make(factory_name, element_name);
 
-    if (element == nullptr) {
+    if (element == nullptr)
+    {
         std::cerr << "Failed to create element '" << element_name << "'\n";
         return nullptr;
     }
 
     gst_object_ref_sink(element);
 
-    if (gst_bin_add(bin, element) == FALSE) {
+    if (gst_bin_add(bin, element) == FALSE)
+    {
         std::cerr << "Failed to add element '" << element_name << "'\n";
         gst_object_unref(element);
         return nullptr;
@@ -37,14 +40,16 @@ static GstPad* request_and_link_tee_pad(GstElement* tee, GstElement* queue)
 {
     GstPad* tee_src_pad = gst_element_request_pad_simple(tee, "src_%u");
 
-    if (tee_src_pad == nullptr) {
+    if (tee_src_pad == nullptr)
+    {
         std::cerr << "Failed to request tee source pad\n";
         return nullptr;
     }
 
     GstPad* queue_sink_pad = gst_element_get_static_pad(queue, "sink");
 
-    if (queue_sink_pad == nullptr) {
+    if (queue_sink_pad == nullptr)
+    {
         std::cerr << "Failed to get queue sink pad\n";
         gst_element_release_request_pad(tee, tee_src_pad);
         gst_object_unref(tee_src_pad);
@@ -53,7 +58,8 @@ static GstPad* request_and_link_tee_pad(GstElement* tee, GstElement* queue)
 
     const GstPadLinkReturn link_result = gst_pad_link(tee_src_pad, queue_sink_pad);
 
-    if (GST_PAD_LINK_FAILED(link_result)) {
+    if (GST_PAD_LINK_FAILED(link_result))
+    {
         std::cerr << "Failed to link tee request pad to queue\n";
         gst_object_unref(queue_sink_pad);
         gst_element_release_request_pad(tee, tee_src_pad);
@@ -80,10 +86,12 @@ static bool release_tee_pad(GstElement* tee, GstPad* tee_src_pad, GstElement* qu
     GstPad* queue_sink_pad = gst_element_get_static_pad(queue, "sink");
     bool unlinked = false;
 
-    if (queue_sink_pad != nullptr) {
+    if (queue_sink_pad != nullptr)
+    {
         unlinked = gst_pad_unlink(tee_src_pad, queue_sink_pad) != FALSE;
 
-        if (!unlinked) {
+        if (!unlinked)
+        {
             std::cerr << "Failed to unlink tee branch\n";
         }
 
@@ -96,7 +104,8 @@ static bool release_tee_pad(GstElement* tee, GstPad* tee_src_pad, GstElement* qu
     GstPad* remaining_pad = gst_element_get_static_pad(tee, pad_name);
     const bool released = remaining_pad == nullptr;
 
-    if (remaining_pad != nullptr) {
+    if (remaining_pad != nullptr)
+    {
         gst_object_unref(remaining_pad);
     }
 
@@ -108,10 +117,12 @@ int main(int argc, char* argv[])
 {
     GError* error = nullptr;
 
-    if (gst_init_check(&argc, &argv, &error) == FALSE) {
+    if (gst_init_check(&argc, &argv, &error) == FALSE)
+    {
         std::cerr << "Failed to initialize GStreamer";
 
-        if (error != nullptr) {
+        if (error != nullptr)
+        {
             std::cerr << ": " << error->message;
             g_error_free(error);
         }
@@ -122,7 +133,8 @@ int main(int argc, char* argv[])
 
     GstElement* pipeline = gst_pipeline_new("request-pad-pipeline");
 
-    if (pipeline == nullptr) {
+    if (pipeline == nullptr)
+    {
         std::cerr << "Failed to create pipeline\n";
         return 1;
     }
@@ -135,14 +147,15 @@ int main(int argc, char* argv[])
     GstElement* sink_b = create_and_add_element(GST_BIN(pipeline), "fakesink", "sink-b");
 
     if (source == nullptr || tee == nullptr || queue_a == nullptr || sink_a == nullptr ||
-        queue_b == nullptr || sink_b == nullptr) {
+        queue_b == nullptr || sink_b == nullptr)
+    {
         gst_object_unref(pipeline);
         return 1;
     }
 
-    if (gst_element_link(source, tee) == FALSE ||
-        gst_element_link(queue_a, sink_a) == FALSE ||
-        gst_element_link(queue_b, sink_b) == FALSE) {
+    if (gst_element_link(source, tee) == FALSE || gst_element_link(queue_a, sink_a) == FALSE ||
+        gst_element_link(queue_b, sink_b) == FALSE)
+    {
         std::cerr << "Failed to link fixed pads\n";
         gst_object_unref(pipeline);
         return 1;
@@ -150,14 +163,16 @@ int main(int argc, char* argv[])
 
     GstPad* tee_src_a = request_and_link_tee_pad(tee, queue_a);
 
-    if (tee_src_a == nullptr) {
+    if (tee_src_a == nullptr)
+    {
         gst_object_unref(pipeline);
         return 1;
     }
 
     GstPad* tee_src_b = request_and_link_tee_pad(tee, queue_b);
 
-    if (tee_src_b == nullptr) {
+    if (tee_src_b == nullptr)
+    {
         release_tee_pad(tee, tee_src_a, queue_a);
         gst_object_unref(pipeline);
         return 1;
@@ -170,7 +185,8 @@ int main(int argc, char* argv[])
 
     gst_object_unref(pipeline);
 
-    if (!branch_a_released || !branch_b_released) {
+    if (!branch_a_released || !branch_b_released)
+    {
         std::cerr << "A tee request pad remained after release\n";
         return 1;
     }
